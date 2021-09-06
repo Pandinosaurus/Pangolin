@@ -90,7 +90,7 @@ cmake --build . -t pypangolin_wheel
 ctest
 ```
 
-![Master Build](https://github.com/stevenlovegrove/pangolin/actions/workflows/build.yml/badge.svg?branch=master) p.s. The *master* branch is an active development branch. Choose a [stable tag](https://github.com/stevenlovegrove/Pangolin/tags) if you prefer.
+![Master Build](https://github.com/stevenlovegrove/pangolin/actions/workflows/build.yml/badge.svg?branch=master) p.s. The *master* branch is a development branch. Choose a [stable tag](https://github.com/stevenlovegrove/Pangolin/tags) if you prefer.
 
 
 
@@ -102,27 +102,18 @@ ctest
 
 You have to be careful about what python version Pangolin has found and is attempting to link against. It will tell you during the `cmake ..` step and you can change it by explicitly telling it the python executable with `cmake -DPYTHON_EXECUTABLE=/path/to/python ..`or ``cmake -DPYTHON_EXECUTABLE=`which python3` `` to use the python accessed through the `python3` alias.
 
-**NOTE** The python wheel is only currently working on MacOS. On Linux, you'll need to load the .so manually `import sys; sys.path.append('path/of/pypangolin.so')`. On Windows, you're out of luck right now. Help appreciated!
+**NOTE** The python wheel is only currently working on MacOS and Linux. On Windows, you're out of luck right now. Help appreciated!
 
 #### On the Web
 
-See **Emscripten (Compile for web)** below.
-
+See [**Emscripten (Compile for web)**](#emscripten-compile-for-web) below.
 
 
 ## Examples
 
-Pangolin is mostly documented through it's simple examples which you can find in the [*examples*](https://github.com/stevenlovegrove/Pangolin/tree/master/examples) folder and *[examples/PythonExamples](examples/PythonExamples)* for python versions. You can also browse and even interact with some online:
+Pangolin is mostly documented through it's simple examples which you can find in the [*examples*](https://github.com/stevenlovegrove/Pangolin/tree/master/examples) folder and [*examples/PythonExamples*](https://github.com/stevenlovegrove/Pangolin/tree/master/examples/PythonExamples) for python versions.
 
-###### Browse some online
-
-https://stevenlovegrove.github.io/Pangolin/examples/
-
-###### Run some in your browser! E.g.
-
-https://stevenlovegrove.github.io/Pangolin/emscripten/examples/SimplePlot/
-
-
+Browse some [**online**](https://stevenlovegrove.github.io/Pangolin/examples) and even run them in your browser, such as [**SimplePlot**](https://stevenlovegrove.github.io/Pangolin/emscripten/examples/SimplePlot), [**SimpleDisplay**](https://stevenlovegrove.github.io/Pangolin/emscripten/examples/SimpleDisplay/) and [**SimpleMultiDisplay**](https://stevenlovegrove.github.io/Pangolin/emscripten/examples/SimpleMultiDisplay/).
 
 ## Issues ##
 

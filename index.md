@@ -82,9 +82,8 @@ mkdir build && cd build
 cmake ..
 cmake --build .
 
-# GIVEME THE PYTHON STUFF!!!!
-cmake --build . -t pypangolin_wheel
-# The cmake .. step tells you which python is being used, and the exact command to copy and paste for installing the pypangolin wheel.
+# GIVEME THE PYTHON STUFF!!!! (Check the output to verify selected python version)
+cmake --build . -t pypangolin_pip_install
 
 # Run me some tests!
 ctest
@@ -102,7 +101,9 @@ ctest
 
 You have to be careful about what python version Pangolin has found and is attempting to link against. It will tell you during the `cmake ..` step and you can change it by explicitly telling it the python executable with `cmake -DPYTHON_EXECUTABLE=/path/to/python ..`or ``cmake -DPYTHON_EXECUTABLE=`which python3` `` to use the python accessed through the `python3` alias.
 
-**NOTE** The python wheel is only currently working on MacOS and Linux. On Windows, you're out of luck right now. Help appreciated!
+If python is found, the pypangolin module will be built with the default `all` target. A Python wheel can be built manually using the `pypangolin_wheel` target, and the wheel can be installed / uninstalled with `pypangolin_pip_install` and `pypangolin_pip_uninstall` targets.
+
+**NOTE** The python wheel and install targets are only currently working on MacOS and Linux. On Windows, you're out of luck right now. Help appreciated!
 
 #### On the Web
 
@@ -164,14 +165,38 @@ Windowing in Pangolin is also backed by a factory. When an application calls Cre
 
 
 ```bash
-# Use the X11 Window Driver and override the default window size
-PANGOLIN_WINDOW_URI="x11:[width=1024,height=768]//" ./some_pangolin_app
+# Use the X11 Window Driver and override the default double buffered option
+PANGOLIN_WINDOW_URI="x11:[double_buffered=false]//" ./some_pangolin_app
 
 # Create a 'virtual' window using a framebuffer
 PANGOLIN_WINDOW_URI="headless://" ./another_pangolin_app
 ```
 
 Some window parameters that may be interesting to override are `DISPLAYNAME`, `DOUBLEBUFFER`, `SAMPLE_BUFFERS`, `SAMPLES`, `HIGHRES`. Window modules currently include `x11`, `winapi`, `cocoa`.
+
+#### Fonts
+
+Additionally, there are a couple of special parameters that can be passed through the `PANGOLIN_WINDOW_URI` environment variable to change the default font or adjust the default font size:
+
+```bash
+PANGOLIN_WINDOW_URI="default:[default_font_size=20]//" ./some_pangolin_app
+
+PANGOLIN_WINDOW_URI="default:[default_font=my_awesome_font.ttf,default_font_size=20]//" ./some_pangolin_app
+```
+
+To use Pangolin in your applications whilst being conciencious of chaning fonts, you can query how long fonts or text are with:
+
+```C++
+#include <pangolin/display/default_font.h>
+int func()
+{
+    // E.g. Choose sensible size for Pangolin Panel
+    const int PANEL_WIDTH = 20* pangolin::default_font().MaxWidth();
+    ...
+    // E.g. Work out some column width etc.
+    const int COL_WIDTH = pangolin::default_font().Text("How big is this text?").Width();
+}
+```
 
 
 

@@ -39,12 +39,6 @@ GlText::GlText()
 
 }
 
-GlText::GlText(const GlText& txt)
-    : tex(txt.tex), str(txt.str), width(txt.width),
-      ymin(txt.ymin), ymax(txt.ymax), vs(txt.vs)
-{
-}
-
 GlText::GlText(const GlTexture& font_tex)
     : tex(&font_tex), width(0),
       ymin(std::numeric_limits<GLfloat>::max()),
@@ -116,6 +110,7 @@ void SetWindowOrthographic()
     glMatrixMode(GL_PROJECTION);
     ProjectionMatrixOrthographic(-0.5, dims[0]-0.5, -0.5, dims[1]-0.5, -1.0, 1.0).Load();
     glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 }
 
 void GlText::Draw() const

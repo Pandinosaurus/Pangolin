@@ -246,6 +246,8 @@ struct Decoration {
     { }
 
     void create() {
+        destroy();
+
         // reserve memory to prevent that DecorationSurface's destructor gets
         // called by 'emplace_back'
         decorations.reserve(9);
@@ -274,6 +276,10 @@ struct Decoration {
     void destroy() {
         decorations.clear();
         buttons.clear();
+    }
+
+    bool visible() {
+        return !(decorations.empty() && buttons.empty());
     }
 
     void resize(const int32_t width, const int32_t height) {
@@ -536,6 +542,11 @@ static void handle_configure_toplevel(void *data, struct xdg_toplevel */*xdg_top
 static void handle_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
     WaylandWindow* const w = static_cast<WaylandWindow*>(data);
 
+    if (w->is_fullscreen && w->decoration->visible())
+        w->decoration->destroy();
+    else if (!w->is_fullscreen && !w->decoration->visible())
+        w->decoration->create();
+
     // resize main surface
     wl_egl_window_resize(w->egl_window, w->width, w->height, 0, 0);
 
@@ -558,10 +569,17 @@ static void handle_toplevel_close(void *data, struct xdg_toplevel */*xdg_topleve
     static_cast<WaylandWindow*>(data)->CloseSignal();
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
 static const struct xdg_toplevel_listener toplevel_listener = {
     .configure = handle_configure_toplevel,
     .close = handle_toplevel_close,
 };
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 static void xdg_wm_base_ping(void */*data*/, struct xdg_wm_base *xdg_wm_base, uint32_t serial) {
     xdg_wm_base_pong(xdg_wm_base, serial);
@@ -659,8 +677,8 @@ static void pointer_handle_axis(void *data, struct wl_pointer */*wl_pointer*/, u
     float dx = 0, dy = 0;
 
     switch (axis) {
-    case REL_X: dy = v; break;   // up, down
-    case REL_Y: dx = v; break;   // left, right
+    case WL_POINTER_AXIS_VERTICAL_SCROLL: dy = -v; break;   // up, down
+    case WL_POINTER_AXIS_HORIZONTAL_SCROLL: dx = v; break;  // left, right
     }
 
     w->SpecialInputSignal(SpecialInputEvent({
@@ -681,6 +699,10 @@ static void pointer_handle_axis_discrete(void */*data*/, struct wl_pointer */*wl
 
 #endif
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
 static const struct wl_pointer_listener pointer_listener = {
     pointer_handle_enter,
     pointer_handle_leave,
@@ -694,6 +716,9 @@ static const struct wl_pointer_listener pointer_listener = {
     pointer_handle_axis_discrete,
 #endif
 };
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 static void keyboard_handle_keymap(void *data, struct wl_keyboard */*keyboard*/, uint32_t format, int fd, uint32_t size) {
     if ((!data) || (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)) {
@@ -816,20 +841,20 @@ static void global_registry_handler(void *data, struct wl_registry *registry, ui
     WaylandDisplay* const w = static_cast<WaylandDisplay*>(data);
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
-        w->wcompositor = reinterpret_cast<wl_compositor*> (wl_registry_bind(registry, id, &wl_compositor_interface, version));
+        w->wcompositor = reinterpret_cast<wl_compositor*> (wl_registry_bind(registry, id, &wl_compositor_interface, std::min<uint32_t>(version,4)));
     }
     else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
-        w->wsubcompositor = static_cast<wl_subcompositor*>(wl_registry_bind(registry, id, &wl_subcompositor_interface, version));
+        w->wsubcompositor = static_cast<wl_subcompositor*>(wl_registry_bind(registry, id, &wl_subcompositor_interface, std::min<uint32_t>(version,1)));
     }
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-        w->xshell = reinterpret_cast<xdg_wm_base*> (wl_registry_bind(registry, id, &xdg_wm_base_interface, version));
+        w->xshell = reinterpret_cast<xdg_wm_base*> (wl_registry_bind(registry, id, &xdg_wm_base_interface, std::min<uint32_t>(version,3)));
     }
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
-        w->wseat = reinterpret_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, version));
+        w->wseat = reinterpret_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, std::min<uint32_t>(version,5)));
         wl_seat_add_listener(w->wseat, &seat_listener, data);
     }
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
-        w->shm = static_cast<wl_shm*>(wl_registry_bind(registry, id, &wl_shm_interface, version));
+        w->shm = static_cast<wl_shm*>(wl_registry_bind(registry, id, &wl_shm_interface, std::min<uint32_t>(version,1)));
         w->cursor_theme = wl_cursor_theme_load(nullptr, 16, w->shm);
     }
 }
@@ -842,8 +867,6 @@ static const struct wl_registry_listener wregistry_listener = {
 };
 
 WaylandDisplay::WaylandDisplay() {
-    xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-
     wdisplay = wl_display_connect(nullptr);
     if (wdisplay == nullptr) {
         throw std::runtime_error("Cannot connect to Wayland compositor!");
@@ -853,6 +876,8 @@ WaylandDisplay::WaylandDisplay() {
     wl_registry_add_listener(wregistry, &wregistry_listener, this);
 
     wl_display_roundtrip(wdisplay);
+
+    xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
     egl_display = eglGetDisplay((EGLNativeDisplayType)wdisplay);
     if(!egl_display) {
@@ -948,7 +973,6 @@ WaylandWindow::WaylandWindow(const int w, const int h,
     wl_surface_commit(wsurface);
 
     wl_display_roundtrip(display->wdisplay);
-    wl_display_roundtrip(display->wdisplay);
 
     // wait for the first configure event
     while (!configured) {
@@ -1000,32 +1024,24 @@ void WaylandWindow::Move(const int /*x*/, const int /*y*/) { }
 
 void WaylandWindow::Resize(const unsigned int /*w*/, const unsigned int /*h*/) { }
 
-void WaylandWindow::ProcessEvents() { }
+void WaylandWindow::ProcessEvents() {
+    wl_display_dispatch_pending(display->wdisplay);
+}
 
 void WaylandWindow::SwapBuffers() {
-    eglSwapBuffers(display->egl_display, egl_surface);
-
     // draw all decoration elements
     decoration->draw();
 
     MakeCurrent();
 
-    wl_display_dispatch(display->wdisplay);
+    eglSwapBuffers(display->egl_display, egl_surface);
 }
 
 
 std::unique_ptr<WindowInterface> CreateWaylandWindowAndBind(const std::string window_title, const int w, const int h, const std::string /*display_name*/, const bool /*double_buffered*/, const int /*sample_buffers*/, const int /*samples*/) {
 
     try{
-        std::unique_ptr<WaylandDisplay> newdisplay = std::make_unique<WaylandDisplay>();
-
-        // glewInit() fails with SIGSEGV for glew < 2.0 since it links to GLX
-        if(atoi((char*)glewGetString(GLEW_VERSION_MAJOR))<2)
-            return nullptr;
-
-        WaylandWindow* win = new WaylandWindow(w, h, window_title, std::move(newdisplay));
-
-        return std::unique_ptr<WindowInterface>(win);
+        return std::make_unique<WaylandWindow>(w, h, window_title, std::make_shared<WaylandDisplay>());
     }
     catch(const std::runtime_error&) {
         // return null pointer for fallback to X11
@@ -1058,6 +1074,7 @@ PANGOLIN_REGISTER_FACTORY(WaylandWindow)
           {"double_buffered","true","Whether the window should be double buffered"},
           {"sample_buffers","1",""},
           {"samples","1",""},
+          {PARAM_GL_PROFILE,{},"Ignored for now"},
       }};
     }
 

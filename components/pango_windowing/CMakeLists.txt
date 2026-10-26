@@ -24,17 +24,22 @@ elseif(EMSCRIPTEN)
     PangolinRegisterFactory(WindowInterface EmscriptenWindow)
 else()
     find_package(X11 QUIET)
-    if(X11_FOUND)
+    find_package(OpenGL QUIET COMPONENTS EGL)
+    if(X11_FOUND AND OpenGL_EGL_FOUND)
         target_sources( ${COMPONENT} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/display_x11.cpp )
         target_link_libraries(${COMPONENT} PRIVATE ${X11_LIBRARIES} )
         target_include_directories(${COMPONENT} PRIVATE ${X11_INCLUDE_DIR} )
+        target_link_libraries(${COMPONENT} PRIVATE OpenGL::EGL)
         PangolinRegisterFactory(WindowInterface X11Window)
     endif()
 
     # Wayland
-    find_package(Wayland QUIET)
-    if(WAYLAND_CLIENT_FOUND)
-        find_package(PkgConfig)
+    find_package(PkgConfig)
+    pkg_check_modules(WAYLAND_CLIENT wayland-client QUIET)
+    pkg_check_modules(wayland-protocols QUIET wayland-protocols>=1.13)
+    if(WAYLAND_CLIENT_FOUND AND wayland-protocols_FOUND)
+        pkg_check_modules(WAYLAND_EGL wayland-egl REQUIRED)
+        pkg_check_modules(WAYLAND_CURSOR wayland-cursor REQUIRED)
         pkg_check_modules(xkbcommon REQUIRED xkbcommon)
 
         target_sources( ${COMPONENT} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/display_wayland.cpp )
@@ -43,7 +48,6 @@ else()
             ${WAYLAND_CLIENT_LIBRARIES}
             ${WAYLAND_EGL_LIBRARIES}
             ${WAYLAND_CURSOR_LIBRARIES}
-            ${egl_LIBRARIES}
             ${xkbcommon_LIBRARIES}
         )
 
@@ -84,6 +88,9 @@ if(OpenGL_EGL_FOUND)
     PangolinRegisterFactory(WindowInterface HeadlessWindow)
 endif()
 
+set_target_properties(
+    ${COMPONENT} PROPERTIES VERSION ${PANGOLIN_VERSION} SOVERSION ${PANGOLIN_VERSION_MAJOR}
+)
 
 target_sources(${COMPONENT} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/window.cpp)
 target_link_libraries(${COMPONENT} PUBLIC pango_core pango_opengl )

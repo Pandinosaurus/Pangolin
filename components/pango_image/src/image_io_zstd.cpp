@@ -25,7 +25,7 @@ void SaveZstd(const Image<unsigned char>& image, const pangolin::PixelFormat& fm
     // Write out header, uncompressed
     zstd_image_header header;
     memcpy(header.magic,"ZSTD",4);
-    strncpy(header.fmt, fmt.format.c_str(), sizeof(header.fmt));
+    memcpy(header.fmt, fmt.format.c_str(), sizeof(header.fmt));
     header.w = image.w;
     header.h = image.h;
     out.write((char*)&header, sizeof(header));

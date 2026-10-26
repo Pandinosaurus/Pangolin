@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <optional>
 #include <pybind11/pybind11.h>
 #include <pangolin/var/var.h>
 #include <Python.h>
@@ -54,6 +55,10 @@ namespace py_pangolin {
 
     template <typename T>
     void set_attr_(const std::string& name, T val, const PyVarMeta & meta = {});
+
+    pybind11::object gui_changed(const std::string &name);
+    bool set_meta(const std::string &name, const PyVarMeta & meta);
+    std::optional<PyVarMeta> get_meta(const std::string &name);
 
     std::vector<std::string>& get_members();     
   protected:

@@ -1,7 +1,15 @@
 get_filename_component(COMPONENT ${CMAKE_CURRENT_LIST_DIR} NAME)
 
-find_package(Python COMPONENTS Interpreter Development QUIET)
-if(Python_FOUND)
+option(BUILD_PANGOLIN_PYTHON "Build support for Pangolin Interactive Console" ON)
+
+if(BUILD_PANGOLIN_PYTHON)
+  if(POLICY CMP0148)
+    cmake_policy(SET CMP0148 NEW)
+  endif()
+  find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+endif()
+
+if(BUILD_PANGOLIN_PYTHON AND Python3_FOUND)
     # If we've inited the submodule, use that
     if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/pybind11/CMakeLists.txt")
         add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/pybind11)
@@ -10,7 +18,7 @@ if(Python_FOUND)
     endif()
 endif()
 
-if(Python_FOUND AND pybind11_FOUND)
+if(BUILD_PANGOLIN_PYTHON AND Python3_FOUND AND pybind11_FOUND)
     set(SRC_BINDINGS
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/attach.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/colour.cpp
@@ -18,6 +26,8 @@ if(Python_FOUND AND pybind11_FOUND)
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/display.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/gl.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/gl_draw.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/gltext.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/glfont.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/glsl.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/glvbo.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin/handler.cpp
@@ -37,16 +47,21 @@ if(Python_FOUND AND pybind11_FOUND)
     )
 
     target_sources(
-        ${COMPONENT} PRIVATE 
+        ${COMPONENT} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/pyinterpreter.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin_embed.cpp 
-        ${SRC_BINDINGS} 
+        ${CMAKE_CURRENT_LIST_DIR}/src/pypangolin_embed.cpp
+        ${SRC_BINDINGS}
     )
 
     target_compile_definitions(${COMPONENT} PUBLIC HAVE_PYTHON)
     target_link_libraries(${COMPONENT} PUBLIC
         pango_core pango_display pango_plot pango_video pango_vars
     )
+
+    set_target_properties(
+        ${COMPONENT} PROPERTIES VERSION ${PANGOLIN_VERSION} SOVERSION ${PANGOLIN_VERSION_MAJOR}
+    )
+
     target_link_libraries(${COMPONENT} PRIVATE pybind11::embed )
     target_include_directories(${COMPONENT} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
@@ -55,6 +70,14 @@ if(Python_FOUND AND pybind11_FOUND)
     install(DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/include"
         DESTINATION ${CMAKE_INSTALL_PREFIX}
     )
+
+    if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+        # ignore "maybe-uninitialized" and "maybe-uninitialized" for Eigen
+        if(CMAKE_COMPILER_IS_GNUCC)
+            target_compile_options(${COMPONENT} PRIVATE  "-Wno-error=maybe-uninitialized")
+        endif()
+        target_compile_options(${COMPONENT} PRIVATE  "-Wno-error=uninitialized")
+    endif()
 
     PangolinRegisterFactory( InterpreterInterface PyInterpreter )
 
@@ -66,6 +89,11 @@ if(Python_FOUND AND pybind11_FOUND)
         $<INSTALL_INTERFACE:include>
     )
 
+    # To prevent some visibility warnings.
+    # https://pybind11.readthedocs.io/en/stable/faq.html#someclass-declared-with-greater-visibility-than-the-type-of-its-field-someclass-member-wattributes
+    set_target_properties(pypangolin PROPERTIES CXX_VISIBILITY_PRESET hidden)
+    set_target_properties(${COMPONENT} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+
     # Create a target for generating a python wheel
     include(MakePythonWheel)
     MakeWheel( pypangolin
@@ -75,10 +103,11 @@ if(Python_FOUND AND pybind11_FOUND)
         AUTHOR "Steven Lovegrove"
         EMAIL "stevenlovegrove@gmail.com"
         LICENCE "MIT"
-        REQUIRES "pyopengl;pyopengl-accelerate;numpy;pillow;pybind11"
+        REQUIRES "pyopengl;numpy;pillow;pybind11"
         PRINT_HELP
     )
 else()
-    set_target_properties(${COMPONENT} PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+    #TODO: with the following line uncommented and BUILD_PANGOLIN_PYTHON=OFF, `make install` fails b/c it tries to install a missing libpango_python.a
+    #set_target_properties(${COMPONENT} PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
     target_sources( ${COMPONENT} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../pango_core/src/dummy.cpp )
 endif()
